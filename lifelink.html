@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Life Link - Your Health Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Apply Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Fallback background color */
+            /* Using a placeholder image URL for the background */
+            background-image: url('https://placehold.co/1920x1080/e0f2fe/0284c7?text=Health+Background');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* Keep background fixed when scrolling */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: #333; /* Default text color for readability */
+        }
+
+        /* Overlay to make text readable on background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Semi-transparent overlay matching body background color */
+            background-color: rgba(240, 244, 248, 0.8);
+            z-index: -1; /* Place behind content */
+        }
+
+
+        /* --- Animations --- */
+        /* Heart pulse animation */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .animate-pulse-heart {
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        /* Simple flash effect for icons on click */
+        @keyframes flash {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .animate-flash {
+            animation: flash 0.4s ease-in-out;
+        }
+        /* Spinner animation */
+        .spinner {
+            @apply inline-block animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mr-2;
+        }
+        /* Animation for statistic card update */
+        @keyframes stat-update-flash {
+            0% { background-color: #ffffff; }
+            50% { background-color: #e0f7fa; } /* Lighter, more subtle flash */
+            100% { background-color: #ffffff; }
+        }
+        .animate-stat-update {
+            animation: stat-update-flash 0.6s ease-out;
+        }
+
+        /* Animation for the Life Link title */
+        @keyframes title-pulse {
+            0%, 100% { color: #2563eb; text-shadow: none; } /* blue-600 */
+            50% { color: #3b82f6; text-shadow: 0 0 10px rgba(59, 130, 246, 0.8); } /* blue-500 with stronger glow */
+        }
+        .animate-title-pulse {
+            animation: title-pulse 3s infinite ease-in-out;
+        }
+
+        /* Modal Fade In */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Modal Slide Down */
+        @keyframes slideDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+
+        /* --- Component Styles --- */
+        /* Buttons */
+        .refresh-button {
+            @apply mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 transition duration-150 ease-in-out text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed; /* Added disabled styles */
+        }
+         /* Removed .report-button as it's no longer needed */
+
+        /* Metric Cards */
+        .metric-card {
+            /* Refined shadow and border */
+            @apply bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col justify-between border border-gray-100;
+        }
+         /* Statistics Cards */
+        .stat-card {
+             /* Refined shadow and border */
+             @apply bg-white p-6 rounded-xl shadow-md flex flex-col transition-colors duration-300 border border-gray-100;
+        }
+        /* Icons within cards */
+        /* Style for the clickable icon/label area */
+        .metric-icon-link {
+            @apply flex justify-center items-center mb-3 cursor-pointer text-gray-700 hover:text-blue-600 transition duration-150 ease-in-out; /* Make the whole area clickable and add hover effect */
+        }
+        .metric-icon-link svg {
+             @apply w-8 h-8 transition-transform duration-200 ease-in-out; /* Base transition for SVG */
+        }
+        /* Icon Hover Effect */
+        .metric-icon-link:hover svg:not(.animate-pulse-heart) { /* Don't apply hover scale to pulsing heart */
+             transform: scale(1.1);
+        }
+        /* Remove default link underline */
+        .metric-icon-link {
+            text-decoration: none;
+        }
+
+
+        /* Metric Values & Units (Minimalistic Refinement) */
+        .metric-value {
+            @apply text-3xl font-bold text-gray-800;
+        }
+        .metric-unit {
+            /* Slightly smaller and lighter unit text */
+            @apply text-base font-medium text-gray-500 ml-1;
+        }
+         .stat-value {
+             @apply text-2xl font-bold text-gray-800;
+         }
+         .stat-label {
+             @apply text-sm font-medium text-gray-500 mt-1;
+         }
+
+
+        /* Diagnostic Status */
+        .status-normal { @apply text-green-600 font-semibold; }
+        .status-checking { @apply text-yellow-600 font-semibold; }
+
+        /* Layout */
+        main { flex-grow: 1; }
+        header { @apply bg-white shadow-md sticky top-0 z-10; }
+        footer { @apply bg-gray-200 text-center py-4 mt-10; }
+        nav { @apply container mx-auto px-6 py-3 flex justify-between items-center; }
+
+        /* Chart Container Styling */
+        .chart-container {
+            /* Increased height for larger chart */
+            @apply relative h-80 md:h-96 w-full max-w-lg mx-auto mt-8; /* Added margin top */
+        }
+
+        /* --- Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); /* Dark semi-transparent background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top */
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2);
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto; /* Allow scrolling if content is tall */
+            position: relative;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .modal-close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280; /* gray-500 */
+            transition: color 0.2s ease-in-out;
+        }
+        .modal-close-button:hover {
+            color: #374151; /* gray-700 */
+        }
+
+        .modal-title {
+            @apply text-2xl font-bold text-gray-800 mb-4;
+        }
+
+        .modal-body {
+            @apply text-gray-700 leading-relaxed;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <nav>
+            <div class="text-3xl font-bold text-blue-600 animate-title-pulse">Life Link</div>
+            <div class="space-x-4">
+                <a href="#" class="text-gray-600 hover:text-blue-600 transition duration-150">Dashboard</a>
+                <a href="#" class="text-gray-600 hover:text-blue-600 transition duration-150">History</a>
+                <a href="#" class="text-gray-600 hover:text-blue-600 transition duration-150">Profile</a>
+                <a href="#" class="text-gray-600 hover:text-blue-600 transition duration-150">Settings</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="container mx-auto p-6 md:p-8 flex-grow">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-10">Your Vital Signs Dashboard</h1>
+
+        <div class="w-full max-w-5xl mx-auto bg-gradient-to-br from-gray-50 to-gray-100 p-6 md:p-8 rounded-2xl shadow-xl border border-gray-200">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+
+                <div class="metric-card text-center">
+                    <div>
+                         <a href="#" class="metric-icon-link" id="hr-link">
+                             <svg id="hr-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-red-500 animate-pulse-heart">
+                              <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.789 9.27a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.218l-.022.012-.007.004-.004.001a.752.752 0 01-.704 0l-.003-.001z" />
+                            </svg>
+                            <span class="ml-2 text-lg font-semibold">Heart Rate</span>
+                        </a>
+                        <div class="metric-value" id="heart-rate-value">72<span class="metric-unit">BPM</span></div>
+                    </div>
+                    <button id="refresh-hr" class="refresh-button w-full">Measure</button>
+                </div>
+
+                <div class="metric-card text-center">
+                    <div>
+                        <a href="#" class="metric-icon-link" id="o2-link">
+                             <svg id="o2-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-blue-500">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75c.958 0 1.85.28 2.615.783A11.13 11.13 0 0117.25 10.5a1.05 1.05 0 01.657.968c0 .68-.57 1.23-1.28 1.23H15c-.71 0-1.28-.55-1.28-1.23 0-.3-.11-.584-.3-.81a9.63 9.63 0 00-2.84-2.84c-.226-.19-.51-.3-.81-.3H8.25c-.68 0-1.23.57-1.23 1.28 0 .37.16.7.43.94.585.51 1.28.9 2.07 1.15a11.12 11.12 0 012.615.783c.958 0 1.85-.28 2.615-.783m-3.865 2.135a9.624 9.624 0 01-2.84 2.84c-.226-.19-.51.3-.81.3H8.25c-.68 0-1.23-.57-1.23-1.28 0-.37.16-.7.43-.94.585-.51 1.28.9 2.07-1.15a11.12 11.12 0 002.615-.783c.958 0 1.85.28 2.615.783a11.13 11.13 0 002.615-.783c.79-.25 1.485-.64 2.07-1.15.27-.24.43-.57.43-.94 0-.71-.55-1.28-1.23-1.28h-.968c-.3 0-.584.11-.81.3a9.63 9.63 0 01-2.84 2.84 11.12 11.12 0 00-2.615.783z" />
+                            </svg>
+                            <span class="ml-2 text-lg font-semibold">Oxygen Sat.</span>
+                        </a>
+                        <div class="metric-value" id="o2-level-value">98<span class="metric-unit">%</span></div>
+                    </div>
+                    <button id="refresh-o2" class="refresh-button w-full">Measure</button>
+                </div>
+
+                <div class="metric-card text-center">
+                    <div>
+                        <a href="#" class="metric-icon-link" id="diagnostic-link">
+                             <svg id="diagnostic-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-green-500">
+                              <path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="ml-2 text-lg font-semibold">Diagnostics</span>
+                        </a>
+                        <div class="mt-1 h-8 flex items-center justify-center"> <span id="diagnostic-status" class="status-normal">All Systems Normal</span>
+                            <div id="diagnostic-spinner" class="spinner hidden"></div> </div>
+                    </div>
+                    <button id="run-diagnostics" class="refresh-button w-full">Run Check</button>
+                </div>
+
+                <div class="metric-card text-center">
+                    <div>
+                        <a href="#" class="metric-icon-link" id="activity-link">
+                             <svg id="activity-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-purple-500">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.125 1.125 0 010 2.25H5.625a1.125 1.125 0 010-2.25z" />
+                            </svg>
+                            <span class="ml-2 text-lg font-semibold">Activity</span>
+                        </a>
+                        <div class="metric-value text-2xl" id="activity-status">Resting</div>
+                    </div>
+                    <button id="refresh-activity" class="refresh-button w-full">Refresh</button>
+                </div>
+
+            </div>
+
+            <div class="mt-10 pt-6 border-t border-gray-300">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-6 text-center">Statistics Report (Real-time Simulation)</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="stat-card text-center" id="avg-hr-card">
+                        <div class="stat-value" id="avg-hr-stat">-</div>
+                        <div class="stat-label">Avg. Heart Rate (BPM)</div>
+                    </div>
+                    <div class="stat-card text-center" id="min-o2-card">
+                        <div class="stat-value" id="min-o2-stat">-</div>
+                        <div class="stat-label">Min. Oxygen Sat. (%)</div>
+                    </div>
+                     <div class="stat-card text-center" id="total-diag-card">
+                        <div class="stat-value" id="total-diag-stat">-</div>
+                        <div class="stat-label">Total Diagnostic Runs</div>
+                    </div>
+                </div>
+
+                 <div class="chart-container">
+                     <canvas id="statsChart"></canvas>
+                 </div>
+
+            </div>
+
+
+        </div> </main>
+
+    <footer>
+        <p class="text-sm text-gray-600">&copy; <span id="current-year"></span> Life Link. All rights reserved.</p>
+    </footer>
+
+    <div id="infoModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button id="closeModal" class="modal-close-button">&times;</button>
+            <h3 id="modalTitle" class="modal-title"></h3>
+            <div id="modalBody" class="modal-body">
+                </div>
+        </div>
+    </div>
+
+
+    <script>
+        // Set current year in footer
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        // --- Get references to elements ---
+        const hrValueElement = document.getElementById('heart-rate-value');
+        const o2ValueElement = document.getElementById('o2-level-value');
+        const diagnosticStatusElement = document.getElementById('diagnostic-status');
+        const diagnosticIcon = document.getElementById('diagnostic-icon'); // Specific ID
+        const diagnosticSpinner = document.getElementById('diagnostic-spinner');
+        const activityStatusElement = document.getElementById('activity-status');
+
+        const refreshHrButton = document.getElementById('refresh-hr');
+        const refreshO2Button = document.getElementById('refresh-o2');
+        const runDiagnosticsButton = document.getElementById('run-diagnostics');
+        const refreshActivityButton = document.getElementById('refresh-activity');
+
+        // Get icon elements by new IDs
+        const hrIcon = document.getElementById('hr-icon');
+        const o2Icon = document.getElementById('o2-icon');
+        // diagnosticIcon already selected
+        const activityIcon = document.getElementById('activity-icon');
+
+        // Get references to the new clickable links
+        const hrLink = document.getElementById('hr-link');
+        const o2Link = document.getElementById('o2-link');
+        const diagnosticLink = document.getElementById('diagnostic-link');
+        const activityLink = document.getElementById('activity-link');
+
+
+        // --- Statistics Report Elements ---
+        const avgHrStatElement = document.getElementById('avg-hr-stat');
+        const minO2StatElement = document.getElementById('min-o2-stat');
+        const totalDiagStatElement = document.getElementById('total-diag-stat');
+        const statsChartCanvas = document.getElementById('statsChart');
+
+        // Get references to the stat card elements
+        const avgHrCard = document.getElementById('avg-hr-card');
+        const minO2Card = document.getElementById('min-o2-card');
+        const totalDiagCard = document.getElementById('total-diag-card');
+
+        // --- Modal Elements ---
+        const infoModal = document.getElementById('infoModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const closeModalButton = document.getElementById('closeModal');
+
+
+        // --- Chart Initialization ---
+        let statsChart; // Variable to hold the chart instance
+        const maxDataPoints = 15; // Increased data points for a longer "snake"
+
+
+        // Function to initialize the chart
+        function initializeChart() {
+            const ctx = statsChartCanvas.getContext('2d');
+            statsChart = new Chart(ctx, {
+                type: 'line', // Changed to 'line' for a line chart
+                data: {
+                    labels: [], // Labels will represent time points
+                    datasets: [
+                        {
+                            label: 'Avg. Heart Rate (BPM)',
+                            data: [], // Data points for Avg HR
+                            borderColor: 'rgba(255, 99, 132, 1)', // Red color for Heart Rate
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)', // Light red fill
+                            tension: 0.1, // Adds a slight curve to the line
+                            fill: false, // Don't fill area under the line
+                            pointRadius: 5, // Size of data points
+                            pointBackgroundColor: 'rgba(255, 99, 132, 1)'
+                        },
+                        {
+                            label: 'Min. Oxygen Sat. (%)',
+                            data: [], // Data points for Min O2
+                            borderColor: 'rgba(54, 162, 235, 1)', // Blue color for Oxygen Sat.
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)', // Light blue fill
+                            tension: 0.1, // Adds a slight curve to the line
+                            fill: false, // Don't fill area under the line
+                            pointRadius: 5, // Size of data points
+                            pointBackgroundColor: 'rgba(54, 162, 235, 1)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Allow chart to fill container
+                    scales: {
+                        y: {
+                            beginAtZero: false, // Allow y-axis to not start at zero
+                            title: {
+                                display: true,
+                                text: 'Value'
+                            },
+                             // Set suggested min/max for better visualization range
+                            suggestedMin: 60, // Minimum possible Heart Rate
+                            suggestedMax: 100 // Maximum possible Oxygen Saturation
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Time (Updates)' // X-axis represents updates over time
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true // Show legend for multiple datasets
+                        },
+                        title: {
+                            display: true,
+                            text: 'Simulated Health Statistics Trend' // Chart title
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Helper function to flash an icon ---
+        function flashIcon(iconElement) {
+            if (!iconElement) return; // Safety check
+            iconElement.classList.add('animate-flash');
+            // Remove the class after the animation completes
+            setTimeout(() => {
+                iconElement.classList.remove('animate-flash');
+            }, 400); // Match animation duration
+        }
+
+         // --- Helper function to animate a stat card ---
+         function animateStatCard(cardElement) {
+             if (!cardElement) return; // Safety check
+             cardElement.classList.add('animate-stat-update');
+             // Remove the class after the animation completes
+             setTimeout(() => {
+                 cardElement.classList.remove('animate-stat-update');
+             }, 600); // Match animation duration
+         }
+
+         // --- Modal Functions ---
+         function showModal(title, content) {
+             modalTitle.textContent = title;
+             modalBody.innerHTML = content; // Use innerHTML to allow basic formatting
+             infoModal.classList.remove('hidden');
+         }
+
+         function hideModal() {
+             infoModal.classList.add('hidden');
+         }
+
+
+        // --- Metric Action Functions ---
+
+        // Function to simulate measuring Heart Rate
+        let currentHr = 72; // Keep track of the current Heart Rate
+        function measureHeartRate() {
+            flashIcon(hrIcon); // Flash the icon
+            const fluctuation = Math.floor(Math.random() * 7) - 3; // Simulate fluctuation
+            currentHr = Math.min(Math.max(60, currentHr + fluctuation), 90); // Keep HR within a reasonable range
+            hrValueElement.innerHTML = `${currentHr}<span class="metric-unit">BPM</span>`; // Update the display
+        }
+
+        // Function to simulate measuring Oxygen Saturation
+        let currentO2 = 98; // Keep track of the current O2 level
+        function measureOxygenSaturation() {
+            flashIcon(o2Icon); // Flash the icon
+            const fluctuation = Math.random() > 0.7 ? (Math.random() > 0.5 ? -1 : 0) : 0; // Simulate small fluctuation
+            currentO2 = Math.min(Math.max(95, currentO2 + fluctuation), 99); // Keep O2 within a reasonable range
+            o2ValueElement.innerHTML = `${currentO2}<span class="metric-unit">%</span>`; // Update the display
+        }
+
+        // Function to simulate running Diagnostics
+        let diagnosticRunCount = 0; // Counter for diagnostics
+        function runDiagnostics() {
+            // Don't flash icon here, spinner provides feedback
+            diagnosticStatusElement.textContent = 'Checking...';
+            diagnosticStatusElement.classList.remove('status-normal');
+            diagnosticStatusElement.classList.add('status-checking');
+            diagnosticIcon.classList.add('hidden'); // Hide icon
+            diagnosticSpinner.classList.remove('hidden'); // Show spinner
+            runDiagnosticsButton.disabled = true; // Disable button
+
+            setTimeout(() => {
+                diagnosticStatusElement.textContent = 'All Systems Normal';
+                diagnosticStatusElement.classList.remove('status-checking');
+                diagnosticStatusElement.classList.add('status-normal');
+                diagnosticIcon.classList.remove('hidden'); // Show icon again
+                diagnosticSpinner.classList.add('hidden'); // Hide spinner
+                runDiagnosticsButton.disabled = false; // Re-enable button
+                diagnosticRunCount++; // Increment counter
+            }, 1500); // Simulate check duration
+        }
+
+        // Function to simulate refreshing Activity status
+        const activities = ['Resting', 'Light Activity', 'Moderate Pace', 'Desk Work', 'Walking'];
+        let currentActivityIndex = 0;
+        function refreshActivity() {
+            flashIcon(activityIcon); // Flash the icon
+            // Randomly move to the next activity or skip one
+            currentActivityIndex = (currentActivityIndex + 1 + Math.floor(Math.random() * 2)) % activities.length;
+            activityStatusElement.textContent = activities[currentActivityIndex]; // Update the display
+        }
+
+
+        // --- Statistics Report Real-time Update ---
+
+        // Function to update statistics and chart
+        function updateStatistics() {
+             // Simulate generating report data
+             const simulatedAvgHr = Math.floor(Math.random() * (80 - 65 + 1)) + 65; // Avg HR between 65-80
+             const simulatedMinO2 = Math.floor(Math.random() * (97 - 95 + 1)) + 95; // Min O2 between 95-97
+
+             // Animate the cards before updating the text
+             animateStatCard(avgHrCard);
+             animateStatCard(minO2Card);
+             animateStatCard(totalDiagCard);
+
+
+             // Update the text statistics
+             avgHrStatElement.textContent = simulatedAvgHr;
+             minO2StatElement.textContent = simulatedMinO2;
+             totalDiagStatElement.textContent = diagnosticRunCount; // Use the actual counter
+
+             // Add new data point to the chart
+             const now = new Date();
+             // Using update number as label for simplicity in this simulation
+             statsChart.data.labels.push(statsChart.data.labels.length + 1);
+             statsChart.data.datasets[0].data.push(simulatedAvgHr);
+             statsChart.data.datasets[1].data.push(simulatedMinO2);
+
+             // Remove oldest data point if exceeding maxDataPoints
+             if (statsChart.data.labels.length > maxDataPoints) {
+                 statsChart.data.labels.shift();
+                 statsChart.data.datasets[0].data.shift();
+                 statsChart.data.datasets[1].data.shift();
+             }
+
+             statsChart.update(); // Update the chart
+        }
+
+        // Initialize the chart and start the real-time update when the page loads
+        window.onload = function() {
+            initializeChart();
+            // Update statistics every 5 seconds (5000 milliseconds)
+            setInterval(updateStatistics, 5000);
+            // Also run an initial update immediately
+            updateStatistics();
+
+            // Add event listeners to call the new functions when buttons are clicked
+            refreshHrButton.addEventListener('click', measureHeartRate);
+            refreshO2Button.addEventListener('click', measureOxygenSaturation);
+            runDiagnosticsButton.addEventListener('click', runDiagnostics);
+            refreshActivityButton.addEventListener('click', refreshActivity);
+
+            // Add event listeners to show modal when the new links are clicked
+            hrLink.addEventListener('click', (event) => {
+                event.preventDefault(); // Prevent default link behavior
+                flashIcon(hrIcon);
+                showModal('Heart Rate Information',
+                    '<p>Simulated historical heart rate data would appear here.</p>' +
+                    '<p>Possible events: Tachycardia (high HR), Bradycardia (low HR).</p>' +
+                    '<p>Tips for a healthy heart: Regular exercise, balanced diet, manage stress.</p>'
+                );
+            });
+            o2Link.addEventListener('click', (event) => {
+                 event.preventDefault(); // Prevent default link behavior
+                 flashIcon(o2Icon);
+                 showModal('Oxygen Saturation Information',
+                    '<p>Simulated historical oxygen saturation data would appear here.</p>' +
+                    '<p>Possible events: Hypoxemia (low O2 levels).</p>' +
+                    '<p>Tips for healthy O2 levels: Deep breathing exercises, avoid smoking, maintain good posture.</p>'
+                 );
+            });
+            diagnosticLink.addEventListener('click', (event) => {
+                 event.preventDefault(); // Prevent default link behavior
+                 flashIcon(diagnosticIcon);
+                 showModal('Diagnostic Information',
+                    '<p>Simulated recent diagnostic check history.</p>' +
+                    '<p>Possible events: System errors, sensor malfunctions, data anomalies.</p>' +
+                    '<p>To ensure accurate diagnostics: Keep device clean, ensure proper fit, follow instructions.</p>'
+                 );
+            });
+            activityLink.addEventListener('click', (event) => {
+                 event.preventDefault(); // Prevent default link behavior
+                 flashIcon(activityIcon);
+                 showModal('Activity Information',
+                    '<p>Simulated activity patterns and history.</p>' +
+                    '<p>Possible events: Periods of inactivity, sudden increases in activity, unusual patterns.</p>' +
+                    '<p>To maintain healthy activity levels: Aim for regular movement, incorporate varied exercises, listen to your body.</p>'
+                 );
+            });
+
+            // Add event listener to close the modal
+            closeModalButton.addEventListener('click', hideModal);
+
+             // Close modal if clicking outside the modal content
+             infoModal.addEventListener('click', (event) => {
+                 if (event.target === infoModal) {
+                     hideModal();
+                 }
+             });
+
+             // Close modal with Escape key
+             document.addEventListener('keydown', (event) => {
+                 if (event.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                     hideModal();
+                 }
+             });
+        };
+
+    </script>
+
+</body>
+</html>
+>
